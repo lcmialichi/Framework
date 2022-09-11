@@ -18,11 +18,13 @@ class Origin{
     {
         $appKey = apache_request_headers()["app-key"];
         if($appKey){
-            $origin = (new Channel)->findByKey($appKey);
-            if($origin){
-                DomainOrigin::setOrigin($origin->idOrigem);
+            // $origin = (new Channel)->findByKey($appKey);
+
+            // if($origin){
+                // DomainOrigin::setOrigin($origin->idOrigem);
+                DomainOrigin::setOrigin(1);
                 return true;
-            }
+            // }
         }
 
         throw new OriginException("Origem dos dados nao localizada!", 401);

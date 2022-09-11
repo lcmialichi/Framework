@@ -5,9 +5,11 @@ namespace source\Curl;
 class Captcha {
 
     protected $api_captcha = 'https://api.anti-captcha.com/getTaskResult';
-	protected $api_captcha_key = 'a2b6dd0aaaaf39124de86e8e927b2bcf';
+	protected string $api_captcha_key;
 
     public function recaptchaSolve($url, $sitekey) {
+
+		$this->api_captcha_key = getenv("CAPTCHA_KEY");
 		
 		denovo: [ $teste = array (
 		
