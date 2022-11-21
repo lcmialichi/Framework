@@ -29,6 +29,7 @@ class Curl {
         CURLOPT_SSL_VERIFYPEER => false, 
     ];
 
+
     /**
      * Configuracoes extras forçadas
      * @var array
@@ -53,6 +54,13 @@ class Curl {
             unlink($this->cookie);
             unset($this->cookie);
         }
+    }
+
+    public function __serialize(){
+        return [
+            'curlOptions' => $this->curlOptions,
+            "cookie" => $this->cookie ?? "",
+        ];
     }
 
     /**

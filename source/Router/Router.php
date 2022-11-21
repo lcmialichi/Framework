@@ -2,6 +2,8 @@
 
 namespace Source\Router;
 
+use Source\Container\Container;
+
 /**
  * Class CoffeeCode Router
  *
@@ -10,6 +12,7 @@ namespace Source\Router;
  */
 class Router extends Dispatch
 {
+    protected Container $app;
     /**
      * Router constructor.
      *
@@ -18,7 +21,9 @@ class Router extends Dispatch
      */
     public function __construct(string $projectUrl, ?string $separator = ":")
     {
+        $this->app = container();
         parent::__construct($projectUrl, $separator);
+
     }
 
     /**

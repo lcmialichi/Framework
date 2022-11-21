@@ -1,160 +1,274 @@
-# **Framework para desenvolvimento de APIs**
-  - Rotas: [Routes\Coffecode](https://github.com/robsonvleite/router) (modificado)
-  - Gerenciamento de Logs : [Seldaek/monolog](https://github.com/Seldaek/monolog)
-  -  JWT: [firebase/php-jwt](https://github.com/firebase/php-jwt)
- - QueryBuilder: [ClanCats/Hydrahon](https://github.com/ClanCats/Hydrahon)
+# Atualização ATLAS 17-11
 
-# **Quick Start:**
+- Conteinerização de dependencias
+- Helpers (novas funcoes, que podem ser chamadas em qualquer lugar da aplicação)
+- Providers (Irao dizer como uma dependencia especifica sera resolvida na execuçao da aplicaçao).
+- Injeção de dependencias automaticas em controllers
+- Criado nova classe para lidar com request (Responsabilidade nao pertence mais a rota)
+- Obrigatorio enviar Content-Type
 
-O sistema foi feito para ser generico na construçao das comunicaçoes entre os objetos.
-Tente manter sempre as boas praticas.
-
-## **Setup:**
----
-- Apos baixar o repositorio, para baixar as dependencias execute o seguinte comando na raiz do projeto:
-```console 
-meu@pa:~s composer update
- ```
- - Para baixar as dependencias de dev execute o comando:
-```console 
-meu@pa:~s composer update --dev
- ```
- - **(LINUX)** Na raiz do projeto execute o seguinte comando para gerar o arquivo .env:
- ```console 
-meu@pa:~s cp ./example/.envExample ./.env
- ```
-
- Para finalizar Apenas substitua as variaveis de ambiente com valores reais (Conexao com o banco, chave JWT, configuraçao do telegram, nome do projeto, canal etc ... ).
-
-## **Service:**
----
-  Os **Serviços:**  sao os controllers do framework, sao responsaveis por contrar os fluxos da plataforma
-  
-  No exemplo abaixo, iremos construir um service:
- ```php
-<?php
-
-use Source\Http\Response\API;
-use Source\Router\Router;
-use Source\Attributes\Permission;
-
-public function  __construct( private Router $router ) {}
-
-#[Response(API::class)]
-class ClientService{
-
-    #[Permission(
-      service: Permission::CLIENT,
-      level: Permission::READ
-      )]
-    public function getClient(Request $request ) : array
+### Simulacao ATLAS
+#### Requisicao:
+    Nao houveram mudanças na requisição.
+#### Resposta:
+  ```json
     {
-      $inputs =  $request->inputs();
-       if($inputs["idCliente"] == 1){
-            return [
-                "message" => "cliente encontrado com sucesso"
-            ];
-       }
+    "status": true,
+    "message": "Simulacao efetuada com sucesso",
+    "data": {
+        "data": "2022-11-09",
+        "valor": 6818.54,
+        "qntParcelas": 10,
+        "valorBruto": 10836,
+        "iof": null,
+        "parcelas": [
+            {
+                "numero": 1,
+                "valor": 2786.74,
+                "data": "2023-01-01"
+            },
+            {
+                "numero": 2,
+                "valor": 2274.98,
+                "data": "2024-01-01"
+            },
+            {
+                "numero": 3,
+                "valor": 1819.98,
+                "data": "2025-01-01"
+            },
+            {
+                "numero": 4,
+                "valor": 1358.98,
+                "data": "2026-01-01"
+            },
+            {
+                "numero": 5,
+                "valor": 951.29,
+                "data": "2027-01-01"
+            },
+            {
+                "numero": 6,
+                "valor": 665.9,
+                "data": "2028-01-01"
+            },
+            {
+                "numero": 7,
+                "valor": 466.13,
+                "data": "2029-01-01"
+            },
+            {
+                "numero": 8,
+                "valor": 285.06,
+                "data": "2030-01-01"
+            },
+            {
+                "numero": 9,
+                "valor": 151.29,
+                "data": "2031-01-01"
+            },
+            {
+                "numero": 10,
+                "valor": 75.65,
+                "data": "2032-01-01"
+            }
+        ]
+    }
+```
 
-       throw new \Exception("Cliente nao encontrado!");
+### Digitaçao ATLAS
+---
+
+#### Requisicao:
+    Nao houveram mudanças na requisição.
+#### Resposta:
+    Nao houveram mudanças na resposta.
+
+### Conteinerização de dependencias
+---
+Agora é necessario informar na tipagem do controller qual classe será instanciada,para que o container possa resolver as dependencias.
+vantagens: multiplas classes podem ser resolvidas em cascatas , e a maneira em que serao resolvidas podem ser definidas pelos providers 
+
+#### exemplo:
+Criaçao de um controller:
+
+```php 
+
+class UserController{
+
+    public function __construct(Router $router){
+        // Poderia ser router, ou request, ou user,
+        // ou qualuqer outra classe que o container possa resolver
+
+        //Alem do mais nao precisa ser uma dependencia apenas.
+    }
+
+    public function consult(
+        Request $request,
+        Router $router, 
+        Client $cliente, 
+        User $user){
+            // todas essas dependencias poderiam ser resolvidas
+    }
+}
+
+        
+```
+
+
+
+   - tambem é possivel resolver uma dependencia utilizando o metodo 'resolve' ( em qualquer lugar da execuçao da aplicaçao, nao so apenas dentro de parametros)
+  
+  ```php
+  $request = resolve(Request::class);
+  $request->inputs();
+
+  ```
+  - é possivel resolver uma classe e um metodo da seguinte forma
+  
+  ```php
+    $functionSolved = container()->call(ClientService::class . "@consultFullData")
+````
+ ### Providers
+
+ - é possivel definir como uma dependencia deve ser resolvida apenas criando uma classe em "Resources\Providers" o metodo de execução deve se chamar 'register' e deve herdar 'Container'
+
+```php
+class SimulationProvider extends Provider {
+    
+        public function register(Request $request)
+        {
+            
+            if(empty($dadosSimulacao = $request->dadosSimulacao)){
+                return;
+            }
+
+            $this->app->bind(SimulationObject::class, function() use ($dadosSimulacao){
+                return new SimulationObject(
+                    idTipo: $dadosSimulacao["idTipo"],
+                    valor: $dadosSimulacao["valor"],
+                    prazo: $dadosSimulacao["prazo"],
+                    margem: $dadosSimulacao["margem"],
+                    renda: $dadosSimulacao["renda"],
+                    seguro: (int)$dadosSimulacao["seguro"],
+                    idTabelaBanco: $dadosSimulacao["idTabelaBanco"]
+                );
+            });
+        }
+}
+
+````
+
+### Helpers
+
+Script que contem diversos metodos que podem ser chamados em qualquer lugar da aplicação.
+Localizado em "Resources".
+
+### Novo Request
+---
+
+A nova classe de request, possui metodos novos, alterando a finalidade de alguns, e novos recursos
+(O request antigo, do robson leite permanece, mas a ideia é ir removendo aos poucos, poderia ser feito em pouco tempo,  mas preguiça??? ).
+
+#### Exemplos:
+
+```php
+    public function consult(Request $request){
+        
+        #todos os dados (input, queryParams, rota)
+        $request->all();
+
+        #todos os dados que vieram do CORPO
+        $request->inputs();
+
+        #retorna o dado utilizando dot notation
+        $request->inputs("dadosCliente.endereco.rua");
+
+        #todos os parametros de url
+        $request->query();
+
+        #uma variavel de url
+        $request->query("cpf");
+
+        #retorna a rota resolvidas
+        $request->route();
+
+        #retorna uma variavel da rota
+        $request->route("hashCliente")
+
+        /**
+         * É possivel acessar todos os dados do request 
+         * (rota, input, e query) como propriedades do objeto
+         * exemplo abaixo:
+         **/
+
+        #retorna direto do input
+        $request->dadosCliente;
+        #retorna direto da rota
+        $request->hashCliente
+         #retorna direto da url
+        $request->cpf
+
+        /**
+         * Tambem é possivel acessar objeto do
+         * usuario que esta efetuando a requisicao.
+         * 
+         */
+        $user = $request->user();
+        $user->id();
+        $user->type();
+        $user->level();
+
+        //Acima sao funcionalidades que coloquei para substitui 
+        //o que antes era: '$request->middleware(Permission)'["type"]
 
     }
- ```
- Acima vemos dois tipos te atributos 'Response' e 'Permission'
- - **Response:** é responsavel por controlar o fluxo de saida da plataforma, é passado uma classe como parametro, esta classe possui uma funcao nomeada de handler, que carrega a execucao do controller.
-- **Permission:** Passa para o controller os niveis de acesso que o usuario precisa ter para acessar a rota, as constantes podem ser atualizadas ou incrementadas em
-  -  level: ````Source\Permission\PermissionLevelInterface````
-  -  Service: ````Source\Permission\PermissionServiceInterface````
-  -  type: ````Source\Permission\PermissionTypeInterface````
-  
-Nas Permissoes é possivel definir o nivel de permissao, e o serviço. O nivel por defaut é de 1 a 4 (respectivamente representados por, READ, CREATE, UPDATE, DELETE).O service, represental qual o serviço necessario para o  usuario acessar a rota.
 
-Na chamada da funçao pela rota é passado um objeto do tipo Request, onde é possivel acessar os inputs (dados enviados pela requisiçao), e acessar dados retornados pelo middlewares.
+```
 
+### Adicionais
+---
+Criei alguns providers que ja podem ser usados, para facilitar varias coisinhas
+
+#### Source\DTO\Client
 ```php
-    $request->inputs();
-    $request->middleWare("Permission") /** @return string[] */
-```
-## **Retorno Formatado:**
----
-Ao final da execuçao do serviço é possivel retornar o que será tratado pela classe que foi atribuida em ```Response``` . Por Default (utilizando a classe API, para controlar o fluxo de saida das informaçoes) esse array será formatado em json e retornará para o cliente, com codigo HTTP 200.
+    public function consult(Client $client){
+        
+        // Essa dependencia retorna TODOS os dados do cliente
+        // em formato de transfer object caso, na rota, possua 
+        // uma variavel {hashCliente}. 
 
-**Ex:** 
+        // caso o cliente nao possua todos os daodos 
+        // exemplo:dados bancarios, a propriedade do objeto
+        // possuira valor FALSE
+
+    }
+```
+#### Source\DTO\CreditConditions
 ```php
-return [
-  "message" => "lista gerada com sucesso!",
-  "data" => [
-    "lista1" => 1,
-    "lista2" => 2
-  ]
-];
- ```
- **Resultará em:**
+    public function consult(CreditConditions $creditConditions){
+        
+        // Essa dependencia retorna as condiçoes de credito
+        // em formato de transfer object, para a tabela identificada.
+        // caso no request tenha sido envidado:
+        // - dadosProposta.idSimulacao (input)
+        // - dadosSimulacao.idTabelaBanco (input)
 
+    }
+```
 
- ```json
- {
-  "status": true,
-  "message": "lista gerada com sucesso!",
-  "data": {
-    "lista1": 1,
-    "lista2": 2
-  }
-}
-
-- HTTP code: 200
- ```
-
-## **Exceptions:**
----
-
-Quando for lançado uma exception o sistema trata como retorno falso. A execuçao do codigo é parada e retornado a mensagem para o cliente com o codigo HTTP informado. 
-
-**Ex:**
+#### Source\Enum\Banks | Source\Enum\Operation | Source\Enum\Product
 ```php
-  throw new Exception("Cliente nao encontrado", 400);
- ```
+    public function consult(Banks $bank, Operation $operation, Product $product){
+        
+        // Para essas 3 dependencias, caso seja identificado 
+        // as mesmas condiçoes de 'Source\DTO\CreditConditions', retornara:
+        // $bank instanciado com o enum do banco em andamento
+        // $operation instanciado com o enum da operacao em andamento
+        // $product instanciado com o enum do produto em andamento
 
- **Resultara em:**
-
- 
- ```json
- {
-  "status": false,
-  "message": "Cliente nao encontrado!"
-}
-
-- HTTP code: 400
-
+    }
 ```
+Lembrando que os providers podem ser criados da maneira que voce quiser, contando que retorne a instancia do objeto da clase definida (caso contrario é jogado um erro).
 
-## **Integraçãos com Telegram:**
----
-
-A estrutura do sistema é capaz de capturar erros internos (erros de tipagem, classes nao encontradas, sintaxes incorretas), erros de SQL, e Erros definidos pelo proprio usuario do framework e envia-los via telegram para um grupo definido no arquivo .env
-
-## ***Testes:***
----
-Sempre que um objeto for criado dentro do sistema, ou alterado é necessario validar seus metodos utilizando PHPUnit para evitar a quebra de suas funcionalidades.
-- Os testes efetuados ficam localizados na pasta ```tests``` na raiz do projeto, e suas classes carregam o sulfixo test em sua nomenclatura.
-
-### **Basico na linha de comando**
-O comando abaixo é responsavel por executar todos os testes  
-
-```console
-  meu@pa:~s ./vendor/bin/phpunit --color tests
-```
-O retorno esperado é algo parecido com isso:
-
-```console
- OK (112 tests, 121 assertions)
-```
-Caso venha algo como mostrado abaixao, sera necessario efetuar ajustes.
-
-```console
-Tests: 112, Assertions: 121, Failures: 1.
-```
- 
-
-
-
+Lembrando tambem que para estes providers acima, se nao existir os dados que eu peço como: idSimulacao ou idTabelaBanco, simplesmente é retornado,e a dependencia sera resolvida automaticamente pelo container.

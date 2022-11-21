@@ -13,6 +13,7 @@ enum Product : int{
     case CONSIGNADO = 2;
     case CARTAO = 3;
     case AUXILIO_BRASIL = 4;
+    case CARTAO_BENEFICIO = 5;
     
     public function getName()
     {

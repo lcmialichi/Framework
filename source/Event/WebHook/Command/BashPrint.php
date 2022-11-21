@@ -3,7 +3,7 @@
 namespace Source\Event\WebHook\Command;
 
 class BashPrint{
-
+    
     /**
      *
      * @var string
@@ -57,5 +57,14 @@ class BashPrint{
     public static function addFail() : void
     {
        self::$fails++;
+    }
+
+    public static function reset() : void 
+    {
+        self::$initialized = false;
+        self::$output = "";
+        self::$success = 0;
+        self::$fails = 0;
+        
     }
 }

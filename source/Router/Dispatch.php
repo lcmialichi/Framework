@@ -2,6 +2,8 @@
 
 namespace Source\Router;
 
+use Source\Request\Request;
+
 /**
  * Class CoffeeCode Dispatch
  *
@@ -60,7 +62,7 @@ abstract class Dispatch
         $this->path = rtrim((filter_input(INPUT_GET, "route", FILTER_DEFAULT) ?? "/"), "/");
         $this->query = filter_input_array(INPUT_GET);
         unset($this->query["route"]);
-         
+
         $this->separator = ($separator ?? ":");
         $this->setHttpMethod();
 
@@ -68,13 +70,13 @@ abstract class Dispatch
         header('Access-Control-Allow-Methods: *');
         header('Access-Control-Allow-Headers: *');
 
-        if($this->httpMethod == "OPTIONS"){     
+        if ($this->httpMethod == "OPTIONS") {
             exit;
         }
-        
     }
 
-    public function setHttpMethod(?string $httpMethod = null){
+    public function setHttpMethod(?string $httpMethod = null)
+    {
         $this->httpMethod = $httpMethod ?? $_SERVER['REQUEST_METHOD'];
     }
 
@@ -134,21 +136,6 @@ abstract class Dispatch
     }
 
     /**
-     * @return object|null
-     */
-    public function current(): ?object
-    {
-        return (object)array_merge(
-            [
-                "namespace" => $this->namespace,
-                "group" => $this->group,
-                "path" => $this->path
-            ],
-            $this->route ?? []
-        );
-    }
-
-    /**
      * @return string
      */
     public function home(): string
@@ -188,7 +175,7 @@ abstract class Dispatch
     /**
      * @return bool
      */
-    public function dispatch(): bool
+    public function dispatch(Request $request): bool
     {
         if (empty($this->routes) || empty($this->routes[$this->httpMethod])) {
             $this->error = NOT_IMPLEMENTED;
@@ -201,6 +188,12 @@ abstract class Dispatch
                 $this->route = $route;
             }
         }
+
+        $request->setRouteResolver(fn () => $this);
+        $this->app->bind(\Source\Request\Request::class, fn () => $request);
+        $this->app->bind($this::class, fn () => clone $this);
+        
+        $this->dispatchServices();
 
         return $this->execute();
     }

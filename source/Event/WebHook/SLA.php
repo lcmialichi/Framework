@@ -11,13 +11,18 @@ class SLA extends WebHook{
      * @param string $idProduct
      * @param string $idTab
      * @param string $idStage
+     * @param int $origin
+     * 
      * 
      */
     public function __construct(
         private int $idTab,
         private int $idAttendance, 
         private int $idProduct,
-        private int $idStage 
+        private int $idStage,
+        private string $hashClient,
+        private int $idUser,
+        private int $origin
         )
     {   
         parent::__construct("SLA");
@@ -33,7 +38,9 @@ class SLA extends WebHook{
             "idTab" => $this->idTab,
             "idAttendance" => $this->idAttendance, 
             "idStage" => $this->idStage,
-            "idProduct" => $this->idProduct
+            "idProduct" => $this->idProduct,
+            "hashClient" => $this->hashClient,
+            "idUsuario" => $this->idUser 
         ];
     }
  

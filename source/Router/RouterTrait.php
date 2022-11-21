@@ -2,8 +2,8 @@
 
 namespace Source\Router;
 
+use Source\Attributes\Response;
 use \Source\Http\Response\ResponseInterface;
-use \Source\Service\ErrorService;
 
 /**
  * Trait RouterTrait
@@ -12,6 +12,19 @@ use \Source\Service\ErrorService;
 trait RouterTrait
 {
 
+    public function parameter($key = null)
+    {
+        $parameters = $this->route["parameters"];
+        if ($key) {
+            return $parameters[$key] ?? null;
+        }
+        return $parameters;
+    }
+
+    public function current()
+    {
+        return $this->route;
+    }
     /**
      * @param string $method
      * @param string $route
@@ -35,17 +48,19 @@ trait RouterTrait
         preg_match_all("~\{\s* ([a-zA-Z_][a-zA-Z0-9_-]*) \}~x", $routeAssoc, $keys, PREG_SET_ORDER);
         $routeDiff = array_values(array_diff_assoc(explode("/", $pathAssoc), explode("/", $routeAssoc)));
 
+        $parameters = [];
         $this->formSpoofing();
         $offset = 0;
         foreach ($keys as $key) {
             $this->data[$key[1]] = ($routeDiff[$offset++] ?? null);
+            $parameters[$key[1]] = $this->data[$key[1]];
         }
 
         $route = (!$this->group ? $route : "/{$this->group}{$route}");
         $data = $this->data;
         $namespace = $this->namespace;
         $middleware = $middleware ?? (!empty($this->middleware[$this->group]) ? $this->middleware[$this->group] : null);
-        $router = function () use ($method, $handler, $data, $route, $name, $namespace, $middleware) {
+        $router = function () use ($method, $handler, $data, $route, $name, $namespace, $middleware, $parameters) {
             return [
                 "route" => $route,
                 "name" => $name,
@@ -53,7 +68,8 @@ trait RouterTrait
                 "middlewares" => $middleware,
                 "handler" => $this->handler($handler, $namespace),
                 "action" => $this->action($handler),
-                "data" => $data
+                "data" => $data,
+                "parameters" => $parameters,
             ];
         };
 
@@ -117,29 +133,29 @@ trait RouterTrait
                 if (method_exists($controller, $method)) {
 
                     $reflectionClass = new \ReflectionClass($controller);
-                    $attribute = $reflectionClass->getAttributes("Source\Attributes\Response");
+                    $attribute = $reflectionClass->getAttributes(Response::class);
+
                     $request = new Request($middleware, $this->route['data'] ?? [], $this->query);
-                    
-                     if(!$attribute){ #Se nao possui Atributo Response na classe de chamada, executa o controller vanila
-                        $newController = new $controller($this);
-                        $newController->$method( $request );
+                    $this->app->bind(Request::class, fn () => $request);
+
+                    if (!$attribute) { #Se nao possui Atributo Response na classe de chamada, executa o controller vanila
+                        $this->app->call("$controller@$method");
                         return true;
                     }
-                    
-                      #Caso exista atributo Response tenta instancia-lo
-                      $response = $attribute[0]->newInstance();
-                      $response = $response->getResponseClass();
 
-                      if(!$response instanceOf ResponseInterface){ # caso nao implemente ResponseInterface
- 
+                    #Caso exista atributo Response tenta instancia-lo
+                    $response = $attribute[0]->newInstance();
+                    $response = $response->getResponseClass();
+
+                    if (!$response instanceof ResponseInterface) { # caso nao implemente ResponseInterface
+
                         $this->error = NOT_IMPLEMENTED;
                         return false;
-                        }
+                    }
 
-                      if($response){   # se existe uma funcao handler dentro do response passado pelo atributo, passa o controller para ser executado pelo response
-                        $response->handle(function() use ($controller, $method, $request){
-                             $newController = new $controller($this);
-                             return $newController->$method( $request );
+                    if ($response) {   # se existe uma funcao handler dentro do response passado pelo atributo, passa o controller para ser executado pelo response
+                        $response->handle(function () use ($controller, $method) {
+                            return $this->app->call("$controller@$method");
                         });
 
                         return true;
@@ -147,7 +163,6 @@ trait RouterTrait
 
                     $this->error = BAD_REQUEST;
                     return false;
-
                 }
 
                 $this->error = METHOD_NOT_ALLOWED;
@@ -165,12 +180,12 @@ trait RouterTrait
     /**
      * @return array|bool
      */
-    private function middleware() : array|bool
+    private function middleware(): array|bool
     {
         if (empty($this->route["middlewares"])) {
             return true;
         }
-        
+
         $middlewares = is_array(
             $this->route["middlewares"]
         ) ? $this->route["middlewares"] : [$this->route["middlewares"]];
@@ -179,11 +194,12 @@ trait RouterTrait
             if (class_exists($middleware)) {
                 $reflectionClass = new \ReflectionClass($middleware);
                 $attribute = $reflectionClass->getAttributes("Source\Attributes\Response");
-                if(!$attribute){ #Se nao possui Atributo Response na classe de chamada, executa o middleware vanila
+                if (!$attribute) { #Se nao possui Atributo Response na classe de chamada, executa o middleware vanila
                     $newMiddleware = new $middleware;
                     if (method_exists($newMiddleware, "handle")) {
-        
-                        if (!$middlewareResponse = $newMiddleware->handle($this)) {
+
+                        $middlewareResponse = $this->app->make($newMiddleware->handle(...));
+                        if (!$middlewareResponse) {
                             return false;
                         }
                         $middlewareContent[$middleware] = $middlewareResponse;
@@ -191,39 +207,36 @@ trait RouterTrait
                         $this->error = METHOD_NOT_ALLOWED;
                         return false;
                     }
-
-                }else{
+                } else {
                     #Caso exista atributo Response tenta instancia-lo
                     $response = $attribute[0]->newInstance();
                     $response = $response->getResponseClass();
-                    
-                    if($response){   # se existe a response passado pelo atributo, passa o middleware para ser executado pelo response
-                        if(!$response instanceOf ResponseInterface){ # caso nao implemente ResponseInterface
+
+                    if ($response) {   # se existe a response passado pelo atributo, passa o middleware para ser executado pelo response
+                        if (!$response instanceof ResponseInterface) { # caso nao implemente ResponseInterface
                             $this->error = NOT_IMPLEMENTED;
                             return false;
                         }
 
-                        $middlewareResponse = $response->handle(function() use ($middleware){
-                                $newMiddleware = new $middleware;
+                        $middlewareResponse = $response->handle(function () use ($middleware) {
+                        $newMiddleware = new $middleware;
 
-                                if(!$middlewareResponse = $newMiddleware->handle($this)){
-                                    return false;
-                                }
-                                return $middlewareResponse;
+                            $middlewareResponse = $this->app->make($newMiddleware->handle(...));
+                            if (!$middlewareResponse) {
+                                return false;
+                            }
+                            return $middlewareResponse;
                         });
                     }
-                    if($middlewareResponse === false){
+                    if ($middlewareResponse === false) {
                         return false;
                     }
-             
+
                     $middlewareContent[$middleware] = $middlewareResponse;
-                 
-                }           
-                
+                }
             } else {
                 $this->error = NOT_IMPLEMENTED;
                 return false;
-
             }
         }
 
@@ -282,5 +295,11 @@ trait RouterTrait
     {
         $params = (!empty($params) ? "?" . http_build_query($params) : null);
         return str_replace(array_keys($arguments), array_values($arguments), $route) . "{$params}";
+    }
+
+
+    public function dispatchServices()
+    {
+        (new \Source\Container\ContainerService)->loadContainers();
     }
 }

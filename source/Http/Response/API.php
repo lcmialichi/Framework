@@ -34,7 +34,7 @@ class API implements ResponseInterface
             http_response_code(401);
             $this->send("Token de autenticacao invalido");
             return false;
-
+            
         } catch (\PDOException $e) {
             Log::critical($e->getMessage());
             $this->send($e->getMessage());

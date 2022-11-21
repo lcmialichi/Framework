@@ -13,9 +13,10 @@ class FormLink extends WebHook{
      */
     public function __construct(
         private FormLinkTransferObject $formLinkTransferObject,
-        private string $clientHash
+        private string $clientHash,
+        int $origem = null
     ){
-      parent::__construct("LINK FORMALIZACAO");
+      parent::__construct("LINK FORMALIZACAO", $origem);
     }
 
     public function provider() : array

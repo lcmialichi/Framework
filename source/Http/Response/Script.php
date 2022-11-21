@@ -25,6 +25,7 @@ class Script implements ResponseInterface
             if(isset($fromScript["outPut"])){
                 if(BashPrint::isInitialized()){
                     BashPrint::printOutput();
+                    BashPrint::reset();
                     
                 }
             }
@@ -43,7 +44,6 @@ class Script implements ResponseInterface
             return false;
 
         } catch (\Error $e) { // Erros da aplicaçao 
-            echo $e;exit;
             echo "\033[41m [ ERROR ] \033[m" . "Message: {$e->getMessage()}\n";
             Log::critical($e->getMessage());
             exit;

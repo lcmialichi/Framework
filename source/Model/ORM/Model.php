@@ -11,8 +11,9 @@ use Source\Connection\DBConnect as DB;
  * 
  * 
  * ![](https://upload.wikimedia.org/wikipedia/commons/6/63/Icon_Bird_512x512.png)
-*/
-abstract class Model implements ORMInterface {
+ */
+abstract class Model implements ORMInterface
+{
 
     /**
      * Variavel contendo o nome da tabela
@@ -28,15 +29,16 @@ abstract class Model implements ORMInterface {
      * Nome da Primary key da tabela
      * @var string
      */
-    private string $primaryKey; 
+    private string $primaryKey;
     /**
      * EM TESTE 
      */
     private static $connection = false;
 
-    public function __construct() {
+    public function __construct()
+    {
 
-        if(!Model::$connection){ # uma conexao por execucao de codigo
+        if (!Model::$connection) { # uma conexao por execucao de codigo
             Model::$connection = DB::getConnection();
         }
 
@@ -46,47 +48,53 @@ abstract class Model implements ORMInterface {
 
         $keys = array_filter($columns, function ($column) {
             return isset($column["key"]) ?  true : false;
-
         });
-        
-        foreach($keys as $key => $value){
-            if($value['key'] == Column::PK){
+
+        foreach ($keys as $key => $value) {
+            if ($value['key'] == Column::PK) {
                 $this->primaryKey = $key;
             }
         }
 
         $this->columns = $columns;
-
     }
-    
+
+    public function __serialize(): array
+    {
+        return [
+            "tableName" => $this->tableName ?? "",
+            "primaryKey" =>  $this->primaryKey ?? "",
+            "columns" => $this->columns ?? []
+        ];
+    }
+
 
     /**
      * Atribui valores para as propriedades
      * passando valores $key (nome da propriedade)
      * @return void
      */
-    private function setProperty( string $key, mixed $value ) : void
+    private function setProperty(string $key, mixed $value): void
     {
-       if(in_array($key, array_keys($this->columns)) || $key == $this->primaryKey){
+        if (in_array($key, array_keys($this->columns)) || $key == $this->primaryKey) {
             $this->reflactor->setProperty($key, $value);
-   
-       }
-    }   
+        }
+    }
 
     /**
      * Coleta valores da propriedade
      * @return mixed
      */
-    private function getProperty( string $key ) : mixed
+    private function getProperty(string $key): mixed
     {
-        if(in_array($key, array_keys($this->columns)) || $key == $this->primaryKey){
+        if (in_array($key, array_keys($this->columns)) || $key == $this->primaryKey) {
             $property = $this->reflactor->getProperty($key);
-            if($property){
+            if ($property) {
                 return $property;
             }
-       }
+        }
 
-       return false;
+        return false;
     }
 
     /**
@@ -95,23 +103,22 @@ abstract class Model implements ORMInterface {
      * Nao faz insert das colunas com generatedValue marcados
      * @return int
      */
-    public function save() : int
-    {           
-        foreach(array_keys($this->columns) as $column){
-            if($this->primaryKey != $column && $this->columns[$column]["generatedValue"] != true){
+    public function save(): int
+    {
+        foreach (array_keys($this->columns) as $column) {
+            if ($this->primaryKey != $column && (!isset($this->columns[$column]["generatedValue"]) ||
+                $this->columns[$column]["generatedValue"] == false)) {
                 $insertDataColumns[$column] =  $this->reflactor->getProperty($column);
             }
-            
         }
-        
+
         $id =  Model::$connection->table($this->tableName)->insert($insertDataColumns)->execute();
-        if($id){
+        if ($id) {
             $this->setProperty($this->primaryKey, $id);
             return $id;
         }
 
         return false;
-                   
     }
 
     /**
@@ -119,18 +126,18 @@ abstract class Model implements ORMInterface {
      * @param bool $useAlias usa alias habilitado nos atributos da classe
      * @return object|bool
      */
-    public function find( int $id, bool $useAlias = false)
+    public function find(int $id, bool $useAlias = false)
     {
         $get = null;
-        if($useAlias){
-            foreach($this->columns as $column => $key){
+        if ($useAlias) {
+            foreach ($this->columns as $column => $key) {
                 $get[$column] = $key['alias'] ?? $column;
             }
         }
 
         $DBResponse =  Model::$connection->table($this->tableName)->select($get)->where($this->primaryKey, $id)->one();
-        if(!$DBResponse){
-           return false;
+        if (!$DBResponse) {
+            return false;
         }
         $this->import($DBResponse);
         return $DBResponse;
@@ -141,10 +148,9 @@ abstract class Model implements ORMInterface {
      * @param string $tableName
      * @return DB
      */
-    public static function table( string  $tableName )
+    public static function table(string  $tableName)
     {
         return Model::$connection->table($tableName);
-
     }
 
     /**
@@ -152,16 +158,15 @@ abstract class Model implements ORMInterface {
      * @param mixed $fields
      * @return DB
      */
-    public function select( mixed $get = null, bool $useAlias = false )
+    public function select(mixed $get = null, bool $useAlias = false)
     {
-        if($useAlias){
-            foreach($this->columns as $column => $key){
+        if ($useAlias) {
+            foreach ($this->columns as $column => $key) {
                 $get[$column] = $key['alias'] ?? $column;
             }
         }
 
         return Model::$connection->table($this->tableName)->select($get);
-
     }
 
     /**
@@ -169,54 +174,61 @@ abstract class Model implements ORMInterface {
      * @param array values
      * @return DB
      */
-    public function update( array $values )
+    public function update(array $values)
     {
         return Model::$connection->table($this->tableName)->update($values);
-
     }
 
-     /**
+    /**
      * Updade da tabela de entidade instanciada pela primaryKey
      * @param array data
      * @param int $id
      * @return DB
      */
-    public function updateModel( array $data, int $id,)
+    public function updateModel(array $data, int $id,)
     {
         return Model::$connection->table($this->tableName)
-                                 ->update($data)
-                                 ->where($this->primaryKey, $id)
-                                 ->execute();
+            ->update($data)
+            ->where($this->primaryKey, $id)
+            ->execute();
     }
 
 
-      /**
+    /**
      * Updade da tabela de entidade instanciada
      * @param array values
      * @return DB
      */
-    public function insert( array $values )
+    public function insert(array $values)
     {
         return Model::$connection->table($this->tableName)->insert($values);
+    }
 
+    /**
+     * Delete na tabela de entidade
+     *
+     * @return void
+     */
+    public function delete()
+    {
+        return Model::$connection->table($this->tableName)->delete();
     }
 
     /**
      * Select de toda a tabela da entidade instanciada
      * @return array|bool
      */
-    public function all( bool $useAlias = false)
+    public function all(bool $useAlias = false)
     {
 
         $get = null;
-        if($useAlias){
-            foreach($this->columns as $column => $key){
+        if ($useAlias) {
+            foreach ($this->columns as $column => $key) {
                 $get[$column] = $key['alias'] ?? $column;
             }
         }
 
-       return Model::$connection->table($this->tableName)->select($get)->execute();         
-  
+        return Model::$connection->table($this->tableName)->select($get)->execute();
     }
 
     /**
@@ -224,7 +236,7 @@ abstract class Model implements ORMInterface {
      * @return int
      */
     public function getId()
-    { 
+    {
         return $this->getProperty($this->primaryKey);
     }
 
@@ -232,12 +244,10 @@ abstract class Model implements ORMInterface {
      * Importa o retorno do BD para as propriedades da classe
      * @return void
      */
-    public function import(object $data) : void
+    public function import(object $data): void
     {
-        foreach(get_object_vars($data) as $key => $value){
+        foreach (get_object_vars($data) as $key => $value) {
             $this->setProperty($key, $value);
         }
     }
-
-
 }

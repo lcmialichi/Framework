@@ -4,13 +4,15 @@ namespace Source\Domain;
 
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
+use Source\Request\Request;
 
 /**
  * Classe responsavel por acessar as informaçoes do token de autenticaçao
  */
-class Token{
-    
-     /**
+class Token
+{
+
+    /**
      * @var int
      */
     private static $userId;
@@ -40,18 +42,24 @@ class Token{
      *
      * @return self
      */
-    public static function build() : self
+    public static function build(Request $request): self
     {
-        if(!Token::$initialized){
-            $token = apache_request_headers()['Authorization'];          
-            $jwt = JWT::decode(str_replace(["Bearer "], "",$token), new Key(getenv('JWTKEY'), 'HS256'));
+        if (!Token::$initialized) {
+            $jwt = JWT::decode(
+                str_replace(
+                    ["Bearer "],
+                    "",
+                    $request->header("HTTP_AUTHORIZATION")
+                ),
+                new Key(getenv('JWTKEY'), 'HS256')
+            );
             Token::$userId = $jwt->userId;
             Token::$userAccessId = $jwt->userAccessId;
             Token::$permissions = $jwt->permissions;
             Token::$expireDate = $jwt->expireDate;
             Token::$accessDate = $jwt->accessDate;
             Token::$initialized = true;
-            return new self; 
+            return new self;
         }
 
         throw new \Source\Exception\TokenError("Token ja inicializado");
@@ -66,7 +74,7 @@ class Token{
         return self::$userId;
     }
 
-     /**
+    /**
      * Retorna o id de acesso do usuario autenticado
      * @return int
      */
@@ -84,7 +92,7 @@ class Token{
         return self::$permissions;
     }
 
-    
+
     public static function getExpireDate()
     {
         return self::$expireDate;

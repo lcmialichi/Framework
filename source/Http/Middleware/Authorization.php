@@ -2,17 +2,18 @@
 
 namespace Source\Http\Middleware;
 
+use Source\Request\Request;
 use Source\Attributes\Response;
-use Source\Http\Response\Middleware;
 use Source\Domain\Token as Token;
+use Source\Http\Response\Middleware;
 
 #[Response(Middleware::class)]
 class Authorization {
     
-    public function handle() 
+    public function handle(Request $request) 
     {
         try{
-            $token = Token::build();
+            $token = Token::build($request);
 
         }catch(\Exception ){
             throw new \Exception("Token de autenticação Invalido!", 401);

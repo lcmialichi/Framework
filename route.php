@@ -15,6 +15,7 @@ ini_set('display_errors', 0);
 
 use Source\Router\Router;
 use Source\Http\Middleware;
+use Source\Request\Request;
 
 header('Content-Type: application/Json');
 
@@ -26,7 +27,7 @@ $router->group("erro");
 $router->get("/404", "ErrorService:notFound");
 $router->get("/403", "ErrorService:forbidden");
 $router->get("/501", "ErrorService:notImplemented");
-$router->dispatch();
+$router->dispatch(resolve(Request::class));
 
 /*** Erro de redirect */
 if (!is_null($router->error())) {

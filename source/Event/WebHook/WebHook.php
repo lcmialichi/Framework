@@ -11,13 +11,13 @@ use Source\Model\WebHookQueue;
 abstract class WebHook extends Curl
 {
 
-    private array  $channels = [];
+    protected array  $channels = [];
     private WebHookModel $webHookModel;
 
-    public function __construct(string $service)
+    public function __construct(string $service, $origin = null)
     {
         $this->webHookModel = new WebHookModel;
-        $submitChanels = $this->webHookModel->findByService($service);
+        $submitChanels = $this->webHookModel->findByService($service, true, $origin);
         if (!$submitChanels) {
             throw new WebHookException("Nenhum webhook cadastrado para o servico '$service'");
         }
@@ -42,7 +42,12 @@ abstract class WebHook extends Curl
         return $this->channels;
     }
 
-    protected function putIntoQueue( int $chanelId )
+    /**
+     *
+     * @param integer $chanelId
+     * @return void
+     */
+    protected function putIntoQueue( int $chanelId ) :void
     {
         (new WebHookQueue)->insert([
             "fila_id_webhook" => $chanelId,
@@ -51,33 +56,49 @@ abstract class WebHook extends Curl
     }
 
     /**
+     *
+     * @return void
+     */
+    public function putAllintoQueue( ) :void
+    {
+        foreach ($this->channels as $channel) {
+            (new WebHookQueue)->insert([
+                "fila_id_webhook" => $channel->id,
+                "fila_requisicao" => json_encode($this->provider())
+            ])->execute();
+        }
+    }
+
+    /**
      * Envia WebHook
      *
      * @return void
      */
-    final public function submit()
+    final public function submit() : void
     {
-        $pool = Pool::create()->timeout(3);
+        $async = Pool::create()
+                ->timeout(30)
+                ->concurrency(20);
 
         foreach ($this->channels as $channel) {
-            
-            $pool->add(function () use ($channel) {
-                $request = $this->post(
+            $fnQueue = fn() => $this->putIntoQueue($channel->id);
+
+            $async->add(function () use ($channel) {
+                return $this->post(
                     url: $channel->url,
                     post: json_encode($this->provider())
                 );
 
+            })->then(function ($request) use ($fnQueue) {
                 if ($request->getInfo("http_code") != 200) {
-                    $this->webHookModel->updateModel(
-                        data: ["webhook_status" => 0],
-                        id: $channel->id
-                    );
+                    $fnQueue();
                 }
-            })->timeout(function() use ($channel){
-                $this->putIntoQueue($channel->id);
-            });
+   
+            })->catch($fnQueue)->timeout($fnQueue);
         }
 
-        $pool->wait();
+        $async->wait();
     }
+
+
 }

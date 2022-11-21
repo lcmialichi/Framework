@@ -13,6 +13,24 @@ final class CurlResponse
     }
 
     /**
+     * @return object
+     */
+    public function object() : object {
+        return json_decode($this->response);
+    }
+
+    /**
+     * @return mixed
+     */
+    public function json($key = null) : mixed {
+        $data = json_decode($this->response, true);
+        if($key){
+            return dot($key, $data);
+        }
+        return $data;
+    }
+
+    /**
      * @return string
      */
     public function getResponse() : string
@@ -21,10 +39,13 @@ final class CurlResponse
     }
 
     /**
-     * @return array
+     * @return array|string
      */
-    public function getHeaders() : array
+    public function getHeaders(?string $header = null) : array|string
     {
+        if($header){
+            return $this->headers[$header];
+        }
         return $this->headers;
     }
 

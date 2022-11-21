@@ -32,5 +32,5 @@ interface EventSubjectInterface
      *
      * @return void
      */
-    public function handle() : void;
+    public function handle() : array;
 }
